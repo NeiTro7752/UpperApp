@@ -1,0 +1,9 @@
+GC | GSP Chica | 14 | 26 | 15
+GM | GSP Mediana | 32 | 41 | 32
+GG | GSP Grande | 22 | 56 | 41
+GE | GSP XL | 38 | 57 | 41
+ST | Caja Steitz | 36 | 60 | 46
+PX | Caja Pyramex | 37 | 53 | 47
+DP | Caja Dunlop | 33 | 79 | 38
+STxl | Caja Steitzxl | 38 | 62 | 52
+CPC | CajaPrimeraCapa | 41.0 | 59.0 | 42.0

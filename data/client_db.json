@@ -1,0 +1,21 @@
+[
+  {
+    "CodCliente": "76182815-0",
+    "CodSucursal": "REALCOFFEE",
+    "NomCliente": "JAL",
+    "NomSucursal": "REALCOFFEE"
+  },
+  {
+    "CodCliente": "78627210-6",
+    "CodSucursal": "CD TOTTUS",
+    "NomCliente": "Hipermercados TOTTUS SA",
+    "NomSucursal": "CD TOTTUS"
+  },
+  {
+    "CodCliente": "96792430-K",
+    "CodSucursal": "SODIMAC",
+    "NomCliente": "SODIMAC S.A.",
+    "NomSucursal": "CD 221"
+  }
+
+]
