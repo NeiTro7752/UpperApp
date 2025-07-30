@@ -140,7 +140,9 @@ def run(df_wms, df_cajas):
     df_final = df[columnas_finales]
 
     # Calcular cantidad de bultos (cajas) y total unidades
-    if 'Unidades dimensión logística' in df_wms.columns:
+# ...existing code...
+
+    if 'Unidades dimensión logística' in df.columns:
         df_final.loc[:, 'Unidades dimensión logística'] = df['Unidades dimensión logística'].astype(float)
         df_final.loc[:, 'CantidadSolicitada'] = df_final['CantidadSolicitada'].astype(float)
         df_final.loc[:, 'Bultos'] = df_final['CantidadSolicitada'] / df_final['Unidades dimensión logística']
@@ -149,6 +151,8 @@ def run(df_wms, df_cajas):
         print(f"Cantidad Bultos: {cantidad_bultos:.0f} - Cantidad Unidades: {cantidad_unidades:.0f}")
     else:
         print("❌ No se encontró la columna 'Unidades dimensión logística' para calcular bultos.")
+
+    # ...existing code...
 
     output_dir = os.path.join("output", "JAL")
     os.makedirs(output_dir, exist_ok=True)

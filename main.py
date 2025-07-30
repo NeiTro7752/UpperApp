@@ -145,9 +145,9 @@ def agregar_caja_interactivo(cajas):
     codigo = input("CódigoCaja: ").strip()
     nombre = input("NombreCaja: ").strip()
     try:
-        alto = float(input("Alto(cm): "))
-        largo = float(input("Largo(cm): "))
-        ancho = float(input("Ancho(cm): "))
+        alto = int(input("Alto(cm): "))
+        largo = int(input("Largo(cm): "))
+        ancho = int(input("Ancho(cm): "))
     except ValueError:
         print("❌ Valores numéricos inválidos.")
         return
@@ -256,6 +256,7 @@ def ejecutar_proceso_cliente():
                     cliente_mod.run(df_wms, df_cajas)
                     print("\nProceso finalizado.")
                     input("Presione Enter para continuar...")
+                    os.system('cls')
                     return
             except ValueError:
                 pass

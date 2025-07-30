@@ -210,6 +210,7 @@ def run(df_wms, df_cajas):
     # Impresión de guía
     respuesta = input("\n¿Desea imprimir el detalle para la creación de guía? (s/n): ").strip().lower()
     if respuesta == "s":
+        print(coditem_db)
         resumen = df_posiciones.groupby("Material").agg({"Cantidad": "sum"}).reset_index()
 
         print("\nGuía de Bultos:")
@@ -230,7 +231,7 @@ def run(df_wms, df_cajas):
                         nomitem = v.get("NomItem", "")
                         break
 
-            print(f"{material:<12} {nomitem:<50} {cantidad:>8} UN")
+            print(f"{coditem:<12} {nomitem:<50} {cantidad:>8} UN")
 
         # Mostrar LPNs únicos en la guía, limpiando prefijo SAL0000...
         def limpiar_lpn(lpn):
@@ -264,7 +265,7 @@ def run(df_wms, df_cajas):
             pos["Material"] = pos_material_pallets[coditem]["Material"]
 
     # Limpiar consola al final del proceso para mejor experiencia
-    os.system('cls')
+    # os.system('cls')
 
 def pedir_pos_y_material(coditems_unicos, coditem_db):
     pos_material_por_coditem = {}
