@@ -228,8 +228,6 @@ def ejecutar_proceso_cliente():
                 idx = int(seleccion) - 1
                 if 0 <= idx < len(clientes):
                     cliente = clientes[idx]
-                    cliente_lower = cliente.lower()
-                    # Cargar módulo cliente
                     cliente_mod = cargar_cliente_module(cliente)
                     if cliente_mod is None or not hasattr(cliente_mod, "run"):
                         print(f"❌ El cliente '{cliente}' no tiene función run(df_wms, df_cajas).")
@@ -256,8 +254,8 @@ def ejecutar_proceso_cliente():
                     cliente_mod.run(df_wms, df_cajas)
                     print("\nProceso finalizado.")
                     input("Presione Enter para continuar...")
-                    os.system('cls')
-                    return
+                    limpiar_consola()
+                    return  # Termina la función para evitar reinicios
             except ValueError:
                 pass
             print("❌ Entrada inválida, intente de nuevo.")

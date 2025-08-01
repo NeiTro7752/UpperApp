@@ -1,10 +1,10 @@
-GC | GSP Chica | 14 | 26 | 15
-GM | GSP Mediana | 32 | 41 | 32
-GG | GSP Grande | 22 | 56 | 41
-GE | GSP XL | 38 | 57 | 41
-ST | Caja Steitz | 36 | 60 | 46
-PX | Caja Pyramex | 37 | 53 | 47
-DP | Caja Dunlop | 33 | 79 | 38
-STxl | Caja Steitzxl | 38 | 62 | 52
-CP | CajaPolera | 41 | 58 | 39
-CJCD | Caja Cuadrada | 31 | 31 | 31
+GSP1 | GSP 1 | 14 | 26 | 15
+GSP2 | GSP 2 | 31 | 40 | 31
+GSP3 | GSP 3 | 20 | 56 | 40
+GSP4 | GSP 4 | 36 | 56 | 40
+ST5 | Steitz 5 | 36 | 60 | 46
+# PX | Caja Pyramex | 37 | 53 | 47
+# DP | Caja Dunlop | 33 | 79 | 38
+# STxl | Caja Steitzxl | 38 | 62 | 52
+# CP | CajaPolera | 41 | 58 | 39
+# CJCD | Caja Cuadrada | 31 | 31 | 31

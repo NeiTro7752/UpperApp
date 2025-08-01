@@ -50,10 +50,15 @@
   },
   "2140007": {
     "NomItem": "STEITZ SECURA STAVANGER BAU GORE RP NB 43",
-    "Material": ""
+    "Material": "11111"
   },
   "": {
     "Material": "",
     "NomItem": ""
+  },
+  "2140118": {
+    "NItem": "1",
+    "NroParte": "SMC640GOREBOAS3 N43",
+    "NomItem": "STEITZ SECURA SMC 640 GORE BOA S3 NB - MP 277 - 43"
   }
 }

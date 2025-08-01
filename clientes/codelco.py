@@ -3,6 +3,8 @@ import json
 import os
 import re
 import pandas as pd
+import time
+import questionary
 from utils.coditem_utils import validar_o_actualizar_material
 
 def run(df_wms, df_cajas):
@@ -13,8 +15,40 @@ def run(df_wms, df_cajas):
     """
     print("🟩 Iniciando proceso CODELCO...\n")
 
-    # Actualizar coditem_db con nuevos CodItem del Excel
-    coditem_db = actualizar_coditem_db(df_wms)
+    # Cargar base coditem_db una sola vez para usar en todo el proceso
+    coditem_db_path = "data/coditem_db.json"
+    if os.path.exists(coditem_db_path):
+        with open(coditem_db_path, "r", encoding="utf-8") as f:
+            coditem_db = json.load(f)
+    else:
+        coditem_db = {}
+
+    # Obtener CodItems únicos de la OC
+    coditems_unicos = df_wms["CodItem"].astype(str).unique().tolist()
+    pos_material_por_coditem = {}
+
+    # Preguntar posición y material solo una vez por CodItem
+    for coditem in coditems_unicos:
+        os.system('cls')
+        nomitem = coditem_db.get(coditem, {}).get("NomItem", "")
+        material_existente = coditem_db.get(coditem, {}).get("Material", "")
+        print(f"CodItem: {coditem} | NomItem: {nomitem}")
+
+        if material_existente:
+            print(f"Material encontrado en base: '{material_existente}'")
+            material = material_existente
+        else:
+            # Pedir material al usuario
+            while True:
+                material = input(f"Ingrese Material para CodItem {coditem} (dejar vacío para usar CodItem): ").strip()
+                if not material:
+                    material = coditem
+                confirm = input(f"¿Es correcto el Material '{material}'? (s/n): ").strip().lower()
+                if confirm == "s":
+                    break
+
+        pos = input(f"Ingrese Posición (Pos) para CodItem {coditem}: ").strip()
+        pos_material_por_coditem[coditem] = {"Pos": pos, "Material": material}
 
     lleva_pallets = input("¿El pedido lleva pallets? (s/n): ").strip().lower()
 
@@ -34,22 +68,18 @@ def run(df_wms, df_cajas):
         while remaining_lpns:
             os.system('cls')  # Limpiar consola antes de pedir selección de LPNs para pallet
             print(f"\n📦 Selección de LPNs para Pallet {pallet_num}:")
-            for i, lpn in enumerate(remaining_lpns):
-                print(f"{i}. {lpn}")
 
-            while True:
-                seleccion = input("Selecciona los índices (ej: 0,2,3): ")
+            # Usar questionary checkbox para selección múltiple
+            selected_lpns = questionary.checkbox(
+                "Selecciona los LPNs para este pallet:",
+                choices=remaining_lpns
+            ).ask()
 
-                try:
-                    indices = [int(x.strip()) for x in seleccion.split(",") if x.strip() != ""]
-                    if not indices or any(i < 0 or i >= len(remaining_lpns) for i in indices):
-                        raise ValueError
-                    break
-                except ValueError:
-                    print("❌ Entrada inválida.")
+            if not selected_lpns:
+                print("❌ Debes seleccionar al menos un LPN.")
+                continue
 
-            selected_lpns = [remaining_lpns[i] for i in indices]
-
+            # --- Pedir peso y dimensiones solo una vez por pallet ---
             while True:
                 try:
                     peso = float(input(f"⚖️ Peso total del Pallet {pallet_num} (kg): "))
@@ -68,11 +98,10 @@ def run(df_wms, df_cajas):
                 print(f"\n📦 Procesando LPN {lpn} dentro de Pallet {pallet_num} con {len(grupo)} items")
 
                 for idx, row in grupo.iterrows():
-                    coditem = row["CodItem"]
-                    nomitem = row.get("NomItem", "")
-                    pos = input(f"Ingrese Posición (Pos) para CodItem {coditem}: ").strip()
-                    # Validar o actualizar material usando función existente
-                    material = validar_o_actualizar_material(coditem, nomitem)
+                    coditem = str(row["CodItem"])
+                    # Usar la info ya pedida al inicio
+                    pos = pos_material_por_coditem[coditem]["Pos"]
+                    material = pos_material_por_coditem[coditem]["Material"]
 
                     posiciones_list_pallet.append({
                         "Pos": pos,
@@ -94,7 +123,8 @@ def run(df_wms, df_cajas):
                 "Posiciones": posiciones_list_pallet  # Guardar posiciones para luego agregar
             })
 
-            remaining_lpns = [lpn for i, lpn in enumerate(remaining_lpns) if i not in indices]
+            # Actualizar remaining_lpns removiendo los seleccionados
+            remaining_lpns = [lpn for lpn in remaining_lpns if lpn not in selected_lpns]
 
             if not remaining_lpns or input("¿Más pallets? (s/n): ").strip().lower() != "s":
                 break
@@ -110,12 +140,6 @@ def run(df_wms, df_cajas):
     posiciones_list = []
 
     bulto_num = 1
-
-    # Obtener CodItem únicos de LPNs sueltos
-    coditems_unicos = df_filtrado["CodItem"].unique().tolist()
-
-    # Pedir posición y material solo una vez por CodItem
-    pos_material_por_coditem = pedir_pos_y_material(coditems_unicos, coditem_db)
 
     # Procesar cada LPN como un bulto (solo los que no están en pallets)
     for lpn in lpns_a_procesar:
@@ -151,7 +175,7 @@ def run(df_wms, df_cajas):
         lpn_list.append(lpn)
 
         for idx, row in grupo.iterrows():
-            coditem = row["CodItem"]
+            coditem = str(row["CodItem"])
             unidades = row["Unidades"]
 
             pos = pos_material_por_coditem[coditem]["Pos"]
@@ -206,11 +230,13 @@ def run(df_wms, df_cajas):
     df_posiciones.to_excel("output/posiciones_codelco.xlsx", index=False)
 
     print("\n✅ Archivos generados: bultos_codelco.xlsx y posiciones_codelco.xlsx")
+    time.sleep(1)
+    os.system('cls')    
 
     # Impresión de guía
     respuesta = input("\n¿Desea imprimir el detalle para la creación de guía? (s/n): ").strip().lower()
     if respuesta == "s":
-        print(coditem_db)
+        # print(coditem_db)
         resumen = df_posiciones.groupby("Material").agg({"Cantidad": "sum"}).reset_index()
 
         print("\nGuía de Bultos:")
@@ -219,7 +245,7 @@ def run(df_wms, df_cajas):
         for _, r in resumen.iterrows():
             material = str(r["Material"])
             cantidad = r["Cantidad"]
-            nomitem = ""
+            nomitem = r.get("NomItem", "")
 
             # Obtener nombre desde coditem_db usando material como clave
             if material in coditem_db:
@@ -245,27 +271,6 @@ def run(df_wms, df_cajas):
         lpns_limpios = [limpiar_lpn(lpn) for lpn in lpns_usados]
         print("\nLPNs en la guía:")
         print(" ".join(lpns_limpios))
-
-    # Obtener CodItem únicos dentro de pallets
-    coditems_pallets = []
-    for p in pallets:
-        for pos in p["Posiciones"]:
-            coditems_pallets.append(pos["Material"])  # O CodItem si lo tienes
-
-    coditems_pallets_unicos = list(set(coditems_pallets))
-
-    # Pedir posición/material solo una vez para estos coditems
-    pos_material_pallets = pedir_pos_y_material(coditems_pallets_unicos, coditem_db)
-
-    # Luego, actualizar posiciones en pallets con la info correcta
-    for p in pallets:
-        for pos in p["Posiciones"]:
-            coditem = pos["Material"]  # O el coditem original si tienes
-            pos["Pos"] = pos_material_pallets[coditem]["Pos"]
-            pos["Material"] = pos_material_pallets[coditem]["Material"]
-
-    # Limpiar consola al final del proceso para mejor experiencia
-    # os.system('cls')
 
 def pedir_pos_y_material(coditems_unicos, coditem_db):
     pos_material_por_coditem = {}
