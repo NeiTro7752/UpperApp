@@ -2,7 +2,9 @@
 import json
 import os
 import pandas as pd
+import questionary  # <-- Agregado import de questionary
 from utils.comunes import agrupar_cajas, agrupar_unidades_por_coditem
+
 
 def run(df_wms, df_cajas):
     """
@@ -20,20 +22,16 @@ def run(df_wms, df_cajas):
     if lleva_pallets == "s":
         while remaining_lpns:
             print(f"\n📦 Selección de LPNs para Pallet {pallet_num}:")
-            for i, lpn in enumerate(remaining_lpns):
-                print(f"{i}. {lpn}")
 
-            while True:
-                seleccion = input("Selecciona los índices (ej: 0,2,3): ").strip()
-                try:
-                    indices = [int(x.strip()) for x in seleccion.split(",") if x.strip() != ""]
-                    if not indices or any(i < 0 or i >= len(remaining_lpns) for i in indices):
-                        raise ValueError
-                    break
-                except ValueError:
-                    print("❌ Entrada inválida.")
+            # Usar questionary checkbox para selección múltiple de LPNs
+            selected_lpns = questionary.checkbox(
+                "Selecciona los LPNs para este pallet:",
+                choices=remaining_lpns
+            ).ask()
 
-            selected_lpns = [remaining_lpns[i] for i in indices]
+            if not selected_lpns:
+                print("❌ Debes seleccionar al menos un LPN.")
+                continue
 
             while True:
                 try:
@@ -54,7 +52,8 @@ def run(df_wms, df_cajas):
                 "Ancho (cm)": ancho
             })
 
-            remaining_lpns = [lpn for i, lpn in enumerate(remaining_lpns) if i not in indices]
+            # Actualizar remaining_lpns removiendo los seleccionados
+            remaining_lpns = [lpn for lpn in remaining_lpns if lpn not in selected_lpns]
 
             if not remaining_lpns or input("¿Más pallets? (s/n): ").strip().lower() != "s":
                 break
@@ -276,7 +275,6 @@ def run(df_wms, df_cajas):
         with open(coditem_db_path, "w", encoding="utf-8") as f:
             json.dump(coditem_db, f, indent=2, ensure_ascii=False)
 
-        # Separar detalle en pallets y bultos según df_pallets y df_bultos
         tiene_pallets = not df_pallets.empty
         tiene_bultos = not df_bultos.empty
 
@@ -299,29 +297,20 @@ def run(df_wms, df_cajas):
             else:
                 print("No se encontraron Nro Parte para los CodItem en la guía.")
 
-        if tiene_pallets and tiene_bultos:
-            # Filtrar detalle para pallets (LPNs que están en df_pallets)
+        # Imprimir una guía por cada pallet
+        if tiene_pallets:
             lpn_pallets = df_pallets["LPN"].unique()
-            df_detalle_pallets = df_detalle[df_detalle["LPN"].isin(lpn_pallets)]
+            for pallet_name in df_pallets["Pallet"].unique():
+                df_detalle_pallet = df_detalle[df_detalle["LPN"].isin(df_pallets[df_pallets["Pallet"] == pallet_name]["LPN"])]
+                imprimir_resumen_guia(df_detalle_pallet, f"Guía {pallet_name}")
 
-            # Filtrar detalle para bultos (LPNs que están en df_bultos pero no en pallets)
-            lpn_bultos = df_bultos["LPN"].unique()
-            df_detalle_bultos = df_detalle[df_detalle["LPN"].isin(lpn_bultos) & ~df_detalle["LPN"].isin(lpn_pallets)]
-
-            imprimir_resumen_guia(df_detalle_pallets, "Guía Pallets")
-            imprimir_resumen_guia(df_detalle_bultos, "Guía Bultos")
-
-        elif tiene_pallets:
-            lpn_pallets = df_pallets["LPN"].unique()
-            df_detalle_pallets = df_detalle[df_detalle["LPN"].isin(lpn_pallets)]
-            imprimir_resumen_guia(df_detalle_pallets, "Guía Pallets")
-
-        elif tiene_bultos:
+        # Imprimir una guía para todos los bultos juntos
+        if tiene_bultos:
             lpn_bultos = df_bultos["LPN"].unique()
             df_detalle_bultos = df_detalle[df_detalle["LPN"].isin(lpn_bultos)]
             imprimir_resumen_guia(df_detalle_bultos, "Guía Bultos")
 
-        else:
+        if not tiene_pallets and not tiene_bultos:
             print("No hay pallets ni bultos para mostrar en la guía.")
 
 
