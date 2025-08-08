@@ -6,6 +6,42 @@ import questionary  # <-- Agregado import de questionary
 from utils.comunes import agrupar_cajas, agrupar_unidades_por_coditem
 
 
+def input_opcion(msg, opciones):
+    """
+    Solicita input restringido a las opciones dadas (sin espacios).
+    """
+    opciones = [o.lower() for o in opciones]
+    while True:
+        val = input(msg).strip().lower()
+        if val in opciones:
+            return val
+        print(f"❌ Opción inválida. Debe ser una de: {', '.join(opciones)}.")
+
+def input_numero(msg, entero=False):
+    """
+    Solicita un número (entero o float) y no permite espacios.
+    """
+    while True:
+        val = input(msg).strip()
+        if " " in val or val == "":
+            print("❌ No se permiten espacios ni campos vacíos.")
+            continue
+        try:
+            return int(val) if entero else float(val)
+        except ValueError:
+            print("❌ Ingresa un número válido.")
+
+def input_no_espacios(msg):
+    """
+    Solicita un input sin espacios.
+    """
+    while True:
+        val = input(msg).strip()
+        if " " in val or val == "":
+            print("❌ No se permiten espacios ni campos vacíos.")
+        else:
+            return val
+
 def run(df_wms, df_cajas):
     """
     Proceso para cliente Collahuasi.
@@ -18,12 +54,10 @@ def run(df_wms, df_cajas):
     pallets = []
     pallet_num = 1
 
-    lleva_pallets = input("¿El pedido lleva pallets? (s/n): ").strip().lower()
+    lleva_pallets = input_opcion("¿El pedido lleva pallets? (s/n): ", ["s", "n"])
     if lleva_pallets == "s":
         while remaining_lpns:
             print(f"\n📦 Selección de LPNs para Pallet {pallet_num}:")
-
-            # Usar questionary checkbox para selección múltiple de LPNs
             selected_lpns = questionary.checkbox(
                 "Selecciona los LPNs para este pallet:",
                 choices=remaining_lpns
@@ -33,15 +67,10 @@ def run(df_wms, df_cajas):
                 print("❌ Debes seleccionar al menos un LPN.")
                 continue
 
-            while True:
-                try:
-                    peso = float(input(f"⚖️ Peso total del Pallet {pallet_num} (kg): "))
-                    alto = float(input(f"📏 Altura del Pallet {pallet_num} (cm): "))
-                    largo = float(input(f"📏 Longitud del Pallet {pallet_num} (cm): "))
-                    ancho = float(input(f"📏 Ancho del Pallet {pallet_num} (cm): "))
-                    break
-                except ValueError:
-                    print("❌ Ingresa valores válidos.")
+            peso = input_numero(f"⚖️ Peso total del Pallet {pallet_num} (kg): ")
+            alto = input_numero(f"📏 Altura del Pallet {pallet_num} (cm): ")
+            largo = input_numero(f"📏 Longitud del Pallet {pallet_num} (cm): ")
+            ancho = input_numero(f"📏 Ancho del Pallet {pallet_num} (cm): ")
 
             pallets.append({
                 "Pallet": f"Pallet{pallet_num}",
@@ -52,10 +81,9 @@ def run(df_wms, df_cajas):
                 "Ancho (cm)": ancho
             })
 
-            # Actualizar remaining_lpns removiendo los seleccionados
             remaining_lpns = [lpn for lpn in remaining_lpns if lpn not in selected_lpns]
 
-            if not remaining_lpns or input("¿Más pallets? (s/n): ").strip().lower() != "s":
+            if not remaining_lpns or input_opcion("¿Más pallets? (s/n): ", ["s", "n"]) != "s":
                 break
 
             pallet_num += 1
@@ -76,24 +104,18 @@ def run(df_wms, df_cajas):
         print(f"\n🔁 LPN repetido: {lpn} ({len(grupo)} items)")
         print(f"   CodItems: {list(grupo['CodItem'])}")
 
-        while True:
-            try:
-                peso = float(input("⚖️  Peso total de la caja (kg): "))
-                break
-            except ValueError:
-                print("❌ Número inválido.")
+        peso = input_numero("⚖️  Peso total de la caja (kg): ")
 
         print("\n📦 Tipos de caja:")
         for i, caja in df_cajas.iterrows():
             print(f"{i}. {caja['NombreCaja']} - {caja['Alto(cm)']}x{caja['Largo(cm)']}x{caja['Ancho(cm)']}")
 
         while True:
-            try:
-                opcion = int(input("Selecciona el número de caja: "))
+            opcion = input_numero("Selecciona el número de caja: ", entero=True)
+            if 0 <= opcion < len(df_cajas):
                 caja_sel = df_cajas.iloc[opcion]
                 break
-            except (ValueError, IndexError):
-                print("❌ Selección inválida.")
+            print("❌ Selección inválida.")
 
         pesos.append(peso)
         altos.append(caja_sel["Alto(cm)"])
@@ -106,24 +128,18 @@ def run(df_wms, df_cajas):
         row = df_filtrado[df_filtrado["LPN"] == lpn].iloc[0]
         print(f"\n🔹 LPN único: {lpn} | CodItem: {row['CodItem']} | Unidades: {row['Unidades']}")
 
-        while True:
-            try:
-                peso = float(input("⚖️  Peso (kg): "))
-                break
-            except ValueError:
-                print("❌ Número inválido.")
+        peso = input_numero("⚖️  Peso (kg): ")
 
         print("\n📦 Tipos de caja:")
         for i, caja in df_cajas.iterrows():
             print(f"{i}. {caja['NombreCaja']} - {caja['Alto(cm)']}x{caja['Largo(cm)']}x{caja['Ancho(cm)']}")
 
         while True:
-            try:
-                opcion = int(input("Selecciona el número de caja: "))
+            opcion = input_numero("Selecciona el número de caja: ", entero=True)
+            if 0 <= opcion < len(df_cajas):
                 caja_sel = df_cajas.iloc[opcion]
                 break
-            except (ValueError, IndexError):
-                print("❌ Selección inválida.")
+            print("❌ Selección inválida.")
 
         pesos.append(peso)
         altos.append(caja_sel["Alto(cm)"])
@@ -212,7 +228,7 @@ def run(df_wms, df_cajas):
     print("\n✅ Archivo 'bultos_pedido_collahuasi.xlsx' generado.")
 
     # Preguntar si desea imprimir detalle para creación de guía
-    respuesta = input("\n¿Desea imprimir el detalle para la creación de guía? (s/n): ").strip().lower()
+    respuesta = input_opcion("\n¿Desea imprimir el detalle para la creación de guía? (s/n): ", ["s", "n"])
     if respuesta == "s":
         coditem_db_path = "data/coditem_db.json"
         if os.path.exists(coditem_db_path):
@@ -243,23 +259,23 @@ def run(df_wms, df_cajas):
                     print(f"\nCodItem: {coditem} | NomItem: {nomitem}")
                     print(f"POS/Item: {nitem}")
                     print(f"Nro Parte: {nroparte}")
-                    correcto = input("¿Son correctos POS/Item y Nro Parte? (s/n): ").strip().lower()
+                    correcto = input_opcion("¿Son correctos POS/Item y Nro Parte? (s/n): ", ["s", "n"])
                     if correcto != "s":
-                        nitem = input("Ingrese POS/Item (NItem): ").strip()
-                        nroparte = input("Ingrese Nro Parte: ").strip()
+                        nitem = input_numero("Ingrese POS/Item (NItem): ", entero=True)
+                        nroparte = input_no_espacios("Ingrese Nro Parte: ")
                         coditem_db[coditem]["NItem"] = nitem
                         coditem_db[coditem]["NroParte"] = nroparte
                 else:
                     print(f"\nCodItem: {coditem} | NomItem: {nomitem}")
-                    nitem = input("Ingrese POS/Item (NItem): ").strip()
-                    nroparte = input("Ingrese Nro Parte: ").strip()
+                    nitem = input_numero("Ingrese POS/Item (NItem): ", entero=True)
+                    nroparte = input_no_espacios("Ingrese Nro Parte: ")
                     coditem_db[coditem]["NItem"] = nitem
                     coditem_db[coditem]["NroParte"] = nroparte
                     coditem_db[coditem]["NomItem"] = nomitem
             else:
                 print(f"\nCodItem: {coditem} | NomItem: {nomitem}")
-                nitem = input("Ingrese POS/Item (NItem): ").strip()
-                nroparte = input("Ingrese Nro Parte: ").strip()
+                nitem = input_numero("Ingrese POS/Item (NItem): ", entero=True)
+                nroparte = input_no_espacios("Ingrese Nro Parte: ")
                 coditem_db[coditem] = {
                     "NItem": nitem,
                     "NroParte": nroparte,
@@ -308,15 +324,22 @@ def run(df_wms, df_cajas):
             print("No hay pallets ni bultos para mostrar en la guía.")
 
         # Preguntar si desea generar etiquetas para despacho
-        generar_etiquetas = input("\n¿Desea generar etiquetas para despacho? (s/n): ").strip().lower()
+        generar_etiquetas = input_opcion("\n¿Desea generar etiquetas para despacho? (s/n): ", ["s", "n"])
         if generar_etiquetas == "s":
-            numero_referencia = input("Ingrese N° OC (Número de Referencia): ").strip()
+            numero_referencia = input_no_espacios("Ingrese N° OC (Número de Referencia): ")
             df_etiquetas = generar_etiquetas_despacho(df_wms, df_bultos, coditem_db, numero_referencia, df_pallets)
+
+            nro_guia = input_no_espacios("Ingrese NRO. DE GUIA: ")
+            asn = input_no_espacios("Ingrese ASN: ")
+            df_etiquetas_grandes = generar_etiquetas_grandes(df_bultos, df_pallets, numero_referencia, nro_guia, asn)
 
             os.makedirs("output", exist_ok=True)
             output_path = "output/etiquetas_peq.xlsx"
-            df_etiquetas.to_excel(output_path, index=False)
-            print(f"\n✅ Etiquetas pequeñas generadas en '{output_path}'")
+            with pd.ExcelWriter(output_path) as writer:
+                df_etiquetas.to_excel(writer, sheet_name="etiqueta_peq", index=False)
+                df_etiquetas_grandes.to_excel(writer, sheet_name="etiqueta_grande", index=False)
+            print(f"\n✅ Etiquetas generadas en '{output_path}'")
+
 
 def generar_etiquetas_despacho(df_wms, df_bultos, coditem_db, numero_referencia, df_pallets=None):
     """
@@ -407,3 +430,58 @@ def generar_etiquetas_despacho(df_wms, df_bultos, coditem_db, numero_referencia,
 
     df_etiquetas = pd.DataFrame(etiquetas, columns=["N° OC", "N° ITEM", "CÓDIGO CLIENTE", "N° DE PARTE", "CANTIDAD", "LPN"])
     return df_etiquetas
+
+
+def generar_etiquetas_grandes(df_bultos, df_pallets, numero_referencia, nro_guia, asn):
+    """
+    Genera etiquetas grandes para bultos y pallets.
+    Devuelve un DataFrame con columnas:
+    ['CLIENTE', 'DESTINO', 'PROVEEDOR', 'OC', 'NRO. DE GUIA', 'ASN', 'CANT BULTOS', 'PESO', 'LPN', 'TIPO']
+    """
+    etiquetas = []
+
+    # Datos fijos
+    cliente = "COMPAÑIA MINERA DOÑA INES DE COLLAHUASI"
+    destino = "BODEGA ROSARIO"
+    proveedor = "COMERCIAL, SERVICIOS E INGENIERIA CSI SPA"
+
+    # Etiquetas para bultos (cajas)
+    lpn_bultos = df_bultos["LPN"].tolist()
+    total_bultos = len(lpn_bultos)
+    for idx, lpn in enumerate(lpn_bultos, 1):
+        peso = df_bultos[df_bultos["LPN"] == lpn]["Peso (kg)"].values[0]
+        etiquetas.append({
+            "CLIENTE": cliente,
+            "DESTINO": destino,
+            "PROVEEDOR": proveedor,
+            "OC": numero_referencia,
+            "NRO. DE GUIA": nro_guia,
+            "ASN": asn,
+            "CANT BULTOS": f"{str(idx).zfill(2)} DE {str(total_bultos).zfill(2)}",
+            "PESO": peso,
+            "LPN": lpn,
+            "TIPO": "BULTO"
+        })
+
+    # Etiquetas para pallets (solo 1 por pallet)
+    if df_pallets is not None and not df_pallets.empty:
+        # Agrupar por Pallet y tomar solo una fila por cada uno
+        pallets_unicos = df_pallets.drop_duplicates(subset=["Pallet"])
+        for _, row in pallets_unicos.iterrows():
+            etiquetas.append({
+                "CLIENTE": cliente,
+                "DESTINO": destino,
+                "PROVEEDOR": proveedor,
+                "OC": numero_referencia,
+                "NRO. DE GUIA": nro_guia,
+                "ASN": asn,
+                "CANT BULTOS": "01 DE 01",
+                "PESO": row["Peso (kg)"],
+                "LPN": row["Pallet"],
+                "TIPO": "PALLET"
+            })
+
+    return pd.DataFrame(etiquetas, columns=[
+        "CLIENTE", "DESTINO", "PROVEEDOR", "OC", "NRO. DE GUIA", "ASN",
+        "CANT BULTOS", "PESO", "LPN", "TIPO"
+    ])
