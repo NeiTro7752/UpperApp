@@ -209,14 +209,9 @@ def run(df_wms, df_cajas):
         df_detalle = df_wms[columnas_detalle]
         df_detalle.to_excel(writer, sheet_name="detalle", index=False)
 
-# Nueva pestaña detalle con columnas LPN, CodItem, NomItem, Unidades
-    columnas_detalle = ["LPN", "CodItem", "NomItem", "Unidades"]
-    df_detalle = df_wms[columnas_detalle]
-    df_detalle.to_excel(writer, sheet_name="detalle", index=False)
-
     print("\n✅ Archivo 'bultos_pedido_collahuasi.xlsx' generado.")
 
-# Preguntar si desea imprimir detalle para creación de guía
+    # Preguntar si desea imprimir detalle para creación de guía
     respuesta = input("\n¿Desea imprimir el detalle para la creación de guía? (s/n): ").strip().lower()
     if respuesta == "s":
         coditem_db_path = "data/coditem_db.json"
@@ -299,7 +294,6 @@ def run(df_wms, df_cajas):
 
         # Imprimir una guía por cada pallet
         if tiene_pallets:
-            lpn_pallets = df_pallets["LPN"].unique()
             for pallet_name in df_pallets["Pallet"].unique():
                 df_detalle_pallet = df_detalle[df_detalle["LPN"].isin(df_pallets[df_pallets["Pallet"] == pallet_name]["LPN"])]
                 imprimir_resumen_guia(df_detalle_pallet, f"Guía {pallet_name}")
@@ -313,5 +307,103 @@ def run(df_wms, df_cajas):
         if not tiene_pallets and not tiene_bultos:
             print("No hay pallets ni bultos para mostrar en la guía.")
 
+        # Preguntar si desea generar etiquetas para despacho
+        generar_etiquetas = input("\n¿Desea generar etiquetas para despacho? (s/n): ").strip().lower()
+        if generar_etiquetas == "s":
+            numero_referencia = input("Ingrese N° OC (Número de Referencia): ").strip()
+            df_etiquetas = generar_etiquetas_despacho(df_wms, df_bultos, coditem_db, numero_referencia, df_pallets)
 
-    print("\n✅ Archivo 'bultos_pedido_collahuasi.xlsx' generado.")
+            os.makedirs("output", exist_ok=True)
+            output_path = "output/etiquetas_peq.xlsx"
+            df_etiquetas.to_excel(output_path, index=False)
+            print(f"\n✅ Etiquetas pequeñas generadas en '{output_path}'")
+
+def generar_etiquetas_despacho(df_wms, df_bultos, coditem_db, numero_referencia, df_pallets=None):
+    """
+    Genera etiquetas para despacho en formato DataFrame para exportar a Excel (Zebra Designer).
+    - df_wms: DataFrame con detalle de items (LPN, CodItem, Unidades, NomItem)
+    - df_bultos: DataFrame con info de bultos (LPN)
+    - coditem_db: dict con info adicional por CodItem (NItem, NroParte)
+    - numero_referencia: string con N° OC (Número de Referencia)
+    - df_pallets: DataFrame con info de pallets (opcional)
+    
+    Retorna un DataFrame con columnas:
+    ['N° OC', 'N° ITEM', 'CÓDIGO CLIENTE', 'N° DE PARTE', 'CANTIDAD', 'LPN']
+    """
+    etiquetas = []
+
+    # Obtener LPNs de pallets si existen
+    lpn_pallets = []
+    if df_pallets is not None and not df_pallets.empty and "LPN" in df_pallets.columns:
+        lpn_pallets = df_pallets["LPN"].unique().tolist()
+
+    # LPNs de bultos
+    lpn_bultos = df_bultos["LPN"].unique().tolist()
+
+    # Unión de todos los LPNs a procesar
+    lpn_todos = sorted(set(lpn_pallets) | set(lpn_bultos))
+
+    # Agrupar por LPN y CodItem para obtener cantidades por item en cada LPN
+    df_lpn_coditem = df_wms.groupby(["LPN", "CodItem", "NomItem"], as_index=False)["Unidades"].sum()
+
+    # Para cada LPN en la unión de pallets y bultos
+    for lpn in lpn_todos:
+        df_lpn = df_lpn_coditem[df_lpn_coditem["LPN"] == lpn]
+
+        # Caso 1: solo un CodItem en LPN
+        if len(df_lpn) == 1:
+            row = df_lpn.iloc[0]
+            coditem = str(row["CodItem"])
+            unidades = int(row["Unidades"])
+            nitem = coditem_db.get(coditem, {}).get("NItem", "")
+            nroparte = coditem_db.get(coditem, {}).get("NroParte", "")
+
+            # Generar 2 etiquetas iguales para la caja (cantidad total)
+            for _ in range(2):
+                etiquetas.append({
+                    "N° OC": numero_referencia,
+                    "N° ITEM": nitem,
+                    "CÓDIGO CLIENTE": coditem,
+                    "N° DE PARTE": nroparte,
+                    "CANTIDAD": unidades,
+                    "LPN": lpn
+                })
+
+        else:
+            # Caso 2: más de un CodItem en LPN
+            # Primero 2 etiquetas por cada CodItem con cantidad total
+            for _, row in df_lpn.iterrows():
+                coditem = str(row["CodItem"])
+                unidades = int(row["Unidades"])
+                nitem = coditem_db.get(coditem, {}).get("NItem", "")
+                nroparte = coditem_db.get(coditem, {}).get("NroParte", "")
+
+                for _ in range(2):
+                    etiquetas.append({
+                        "N° OC": numero_referencia,
+                        "N° ITEM": nitem,
+                        "CÓDIGO CLIENTE": coditem,
+                        "N° DE PARTE": nroparte,
+                        "CANTIDAD": unidades,
+                        "LPN": lpn
+                    })
+
+            # Luego etiquetas pequeñas cantidad 1 para cada unidad de cada CodItem
+            for _, row in df_lpn.iterrows():
+                coditem = str(row["CodItem"])
+                unidades = int(row["Unidades"])
+                nitem = coditem_db.get(coditem, {}).get("NItem", "")
+                nroparte = coditem_db.get(coditem, {}).get("NroParte", "")
+
+                for _ in range(unidades):
+                    etiquetas.append({
+                        "N° OC": numero_referencia,
+                        "N° ITEM": nitem,
+                        "CÓDIGO CLIENTE": coditem,
+                        "N° DE PARTE": nroparte,
+                        "CANTIDAD": 1,
+                        "LPN": lpn
+                    })
+
+    df_etiquetas = pd.DataFrame(etiquetas, columns=["N° OC", "N° ITEM", "CÓDIGO CLIENTE", "N° DE PARTE", "CANTIDAD", "LPN"])
+    return df_etiquetas
