@@ -2,10 +2,12 @@
 import os
 import json
 import pandas as pd
+import questionary
 
 from utils.seleccion_archivo import seleccionar_archivo
 from utils.cajas import cargar_cajas, agregar_caja, editar_caja, eliminar_caja
 import sys
+
 
 def resource_path(relative_path):
     """Obtiene la ruta absoluta, compatible con PyInstaller"""
@@ -17,10 +19,10 @@ def resource_path(relative_path):
     return os.path.join(base_path, relative_path)
 
 
-
 DATA_DIR = "data"
 OUTPUT_DIR = "output"
 CLIENTES_DIR = "clientes"
+
 
 def cargar_database():
     path = resource_path(os.path.join(DATA_DIR, "database_db.json"))
@@ -31,27 +33,25 @@ def cargar_database():
     with open(path, "r", encoding="utf-8") as f:
         return json.load(f)
 
+
 def limpiar_consola():
     os.system('cls' if os.name == 'nt' else 'clear')
+
 
 def seleccionar_owner(database):
     owners = list(database.get("Owners", {}).keys())
     while True:
         limpiar_consola()
-        print("\nSeleccione Owner (0 para volver):")
-        for i, owner in enumerate(owners, start=1):
-            print(f"{i}. {owner}")
-        seleccion = input("Ingrese número de Owner: ").strip()
-        if seleccion == "0":
+        seleccion = questionary.select(
+            "Seleccione Owner (0 para volver):",
+            choices=owners + ["Volver", "Salir"]
+        ).ask()
+        if seleccion in [None, "Salir"]:
             return None
-        try:
-            idx = int(seleccion) - 1
-            if 0 <= idx < len(owners):
-                return owners[idx]
-        except ValueError:
-            pass
-        print("❌ Entrada inválida, intente de nuevo.")
-        input("Presione Enter para continuar...")
+        if seleccion == "Volver":
+            return "Volver"
+        return seleccion
+
 
 def seleccionar_cliente(database, owner):
     clientes = database.get("Owners", {}).get(owner, [])
@@ -61,20 +61,16 @@ def seleccionar_cliente(database, owner):
         return None
     while True:
         limpiar_consola()
-        print(f"\nClientes para Owner '{owner}' (0 para volver):")
-        for i, cliente in enumerate(clientes, start=1):
-            print(f"{i}. {cliente}")
-        seleccion = input("Ingrese número de cliente: ").strip()
-        if seleccion == "0":
+        seleccion = questionary.select(
+            f"Clientes para Owner '{owner}' (0 para volver):",
+            choices=clientes + ["Volver", "Salir"]
+        ).ask()
+        if seleccion in [None, "Salir"]:
             return None
-        try:
-            idx = int(seleccion) - 1
-            if 0 <= idx < len(clientes):
-                return clientes[idx]
-        except ValueError:
-            pass
-        print("❌ Entrada inválida, intente de nuevo.")
-        input("Presione Enter para continuar...")
+        if seleccion == "Volver":
+            return "Volver"
+        return seleccion
+
 
 def cargar_cliente_module(cliente_name):
     import importlib.util
@@ -87,36 +83,40 @@ def cargar_cliente_module(cliente_name):
     spec.loader.exec_module(module)
     return module
 
+
 def main_menu():
     while True:
-        # limpiar_consola()
-        print("\n=== Menú Principal ===")
-        print("1. Editar cajas")
-        print("2. Seleccionar Owner y cliente para ejecutar proceso")
-        print("3. Salir")
-        opcion = input("Seleccione opción: ").strip()
-        if opcion == "1":
+        opcion = questionary.select(
+            "\n=== Menú Principal ===",
+            choices=[
+                "Editar cajas",
+                "Seleccionar Owner y cliente para ejecutar proceso",
+                "Salir"
+            ]
+        ).ask()
+        if opcion == "Editar cajas":
             menu_editar_cajas()
-        elif opcion == "2":
+        elif opcion == "Seleccionar Owner y cliente para ejecutar proceso":
             ejecutar_proceso_cliente()
-        elif opcion == "3":
+        elif opcion == "Salir" or opcion is None:
             print("Saliendo...")
             break
-        else:
-            print("❌ Opción inválida.")
-            input("Presione Enter para continuar...")
+
 
 def menu_editar_cajas():
     cajas = cargar_cajas()
     while True:
-        print("\n--- Edición de Cajas ---")
-        print("1. Listar cajas")
-        print("2. Agregar caja")
-        print("3. Editar caja")
-        print("4. Eliminar caja")
-        print("5. Volver al menú principal")
-        opcion = input("Seleccione opción: ").strip()
-        if opcion == "1":
+        opcion = questionary.select(
+            "\n--- Edición de Cajas ---",
+            choices=[
+                "Listar cajas",
+                "Agregar caja",
+                "Editar caja",
+                "Eliminar caja",
+                "Volver"
+            ]
+        ).ask()
+        if opcion == "Listar cajas":
             if not cajas:
                 print("No hay cajas registradas.")
             else:
@@ -128,17 +128,15 @@ def menu_editar_cajas():
                 for c in cajas_ordenadas:
                     print(f"{c['CódigoCaja']:<8} | {c['NombreCaja']:<15} | {c['Alto(cm)']:>6} | {c['Largo(cm)']:>6} | {c['Ancho(cm)']:>6}")
             input("Presione Enter para continuar...")
-        elif opcion == "2":
+        elif opcion == "Agregar caja":
             agregar_caja_interactivo(cajas)
-        elif opcion == "3":
+        elif opcion == "Editar caja":
             editar_caja_interactivo(cajas)
-        elif opcion == "4":
+        elif opcion == "Eliminar caja":
             eliminar_caja_interactivo(cajas)
-        elif opcion == "5":
+        elif opcion == "Volver" or opcion is None:
             break
-        else:
-            print("❌ Opción inválida.")
-            input("Presione Enter para continuar...")
+
 
 def agregar_caja_interactivo(cajas):
     print("\nAgregar nueva caja:")
@@ -160,6 +158,7 @@ def agregar_caja_interactivo(cajas):
     }
     agregar_caja(cajas, nueva)
     print("✅ Caja agregada.")
+
 
 def editar_caja_interactivo(cajas):
     codigo = input("Ingrese CódigoCaja a editar: ").strip()
@@ -196,12 +195,14 @@ def editar_caja_interactivo(cajas):
     else:
         print("No se hicieron cambios.")
 
+
 def eliminar_caja_interactivo(cajas):
     codigo = input("Ingrese CódigoCaja a eliminar: ").strip()
     if eliminar_caja(cajas, codigo):
         print("✅ Caja eliminada.")
     else:
         print("❌ Caja no encontrada.")
+
 
 def ejecutar_proceso_cliente():
     database = cargar_database()
@@ -211,55 +212,47 @@ def ejecutar_proceso_cliente():
         owner = seleccionar_owner(database)
         if owner is None:
             return
+        if owner == "Volver":
+            continue
         clientes = database.get("Owners", {}).get(owner, [])
         if not clientes:
             print(f"⚠️ No hay clientes para Owner '{owner}'")
             input("Presione Enter para continuar...")
             continue
         while True:
-            limpiar_consola()
-            print(f"\nClientes para Owner '{owner}' (0 para volver):")
-            for i, cliente in enumerate(clientes, start=1):
-                print(f"{i}. {cliente}")
-            seleccion = input("Ingrese número de cliente: ").strip()
-            if seleccion == "0":
+            cliente = seleccionar_cliente(database, owner)
+            if cliente is None:
                 break  # volver a seleccionar owner
+            if cliente == "Volver":
+                break
+            cliente_mod = cargar_cliente_module(cliente)
+            if cliente_mod is None or not hasattr(cliente_mod, "run"):
+                print(f"❌ El cliente '{cliente}' no tiene función run(df_wms, df_cajas).")
+                input("Presione Enter para continuar...")
+                return
+            print("\nSeleccione archivo WMS (Excel o CSV):")
+            archivo_wms = seleccionar_archivo("excel")
+            cajas_list = cargar_cajas()
+            if not cajas_list:
+                print("❌ No se encontraron cajas en data/cajas.txt")
+                input("Presione Enter para continuar...")
+                return
+            df_cajas = pd.DataFrame(cajas_list).sort_values(by="CódigoCaja").reset_index(drop=True)
             try:
-                idx = int(seleccion) - 1
-                if 0 <= idx < len(clientes):
-                    cliente = clientes[idx]
-                    cliente_mod = cargar_cliente_module(cliente)
-                    if cliente_mod is None or not hasattr(cliente_mod, "run"):
-                        print(f"❌ El cliente '{cliente}' no tiene función run(df_wms, df_cajas).")
-                        input("Presione Enter para continuar...")
-                        return
-                    print("\nSeleccione archivo WMS (Excel o CSV):")
-                    archivo_wms = seleccionar_archivo("excel")
-                    cajas_list = cargar_cajas()
-                    if not cajas_list:
-                        print("❌ No se encontraron cajas en data/cajas.txt")
-                        input("Presione Enter para continuar...")
-                        return
-                    df_cajas = pd.DataFrame(cajas_list).sort_values(by="CódigoCaja").reset_index(drop=True)
-                    try:
-                        if archivo_wms.lower().endswith(".csv"):
-                            df_wms = pd.read_csv(archivo_wms, sep=",", encoding="latin1")
-                        else:
-                            df_wms = pd.read_excel(archivo_wms)
-                    except Exception as e:
-                        print(f"❌ Error leyendo archivo WMS: {e}")
-                        input("Presione Enter para continuar...")
-                        return
-                    print(f"\nEjecutando proceso para cliente '{cliente}'...\n")
-                    cliente_mod.run(df_wms, df_cajas)
-                    print("\nProceso finalizado.")
-                    input("Presione Enter para continuar...")
-                    limpiar_consola()
-                    return  # Termina la función para evitar reinicios
-            except ValueError:
-                pass
-            print("❌ Entrada inválida, intente de nuevo.")
+                if archivo_wms.lower().endswith(".csv"):
+                    df_wms = pd.read_csv(archivo_wms, sep=",", encoding="latin1")
+                else:
+                    df_wms = pd.read_excel(archivo_wms)
+            except Exception as e:
+                print(f"❌ Error leyendo archivo WMS: {e}")
+                input("Presione Enter para continuar...")
+                return
+            print(f"\nEjecutando proceso para cliente '{cliente}'...\n")
+            cliente_mod.run(df_wms, df_cajas)
+            print("\nProceso finalizado.")
             input("Presione Enter para continuar...")
+            limpiar_consola()
+            return  # Termina la función para evitar reinicios
 
 
 if __name__ == "__main__":
