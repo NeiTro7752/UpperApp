@@ -4,3 +4,4 @@ GSP3 | GSP 3 | 20 | 56 | 40
 GSP4 | GSP 4 | 36 | 56 | 40
 ST5 | Steitz 5 | 36 | 60 | 46
 BRU | BRUBECK | 42 | 59 | 42
+ST6 | Steitz 6 | 38 | 64 | 52

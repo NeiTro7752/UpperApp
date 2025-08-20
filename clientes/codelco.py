@@ -192,86 +192,241 @@ def run(df_wms, df_cajas):
         bulto_num += 1
 
     # Agregar posiciones de pallets a posiciones_list y bultos de pallets a df_bultos
-    for p in pallets:
+    for idx, p in enumerate(pallets, start=1):
         # Agregar posiciones
         posiciones_list.extend(p["Posiciones"])
 
-        # Agregar bultos de pallet al df_bultos
-        for i, lpn in enumerate(p["LPNs"], start=1):
-            pesos.append(p["Peso (kg)"] / len(p["LPNs"]))  # Distribuir peso entre LPNs
-            altos.append(p["Alto (cm)"])
-            largos.append(p["Largo (cm)"])
-            anchos.append(p["Ancho (cm)"])
-            nombre_caja.append("Pallet")
-            lpn_list.append(lpn)
+        # Agregar un solo bulto por pallet con peso total y dimensiones
+        pesos.append(p["Peso (kg)"])
+        altos.append(p["Alto (cm)"])
+        largos.append(p["Largo (cm)"])
+        anchos.append(p["Ancho (cm)"])
+        nombre_caja.append("Pallet")
+        lpn_list.append(f"Pallet{idx}")  # o cualquier identificador único para el pallet
 
-    # Crear DataFrame bultos
-    df_bultos = pd.DataFrame()
-    df_bultos["Bulto"] = range(1, len(pesos) + 1)
-    df_bultos["Peso"] = pesos
-    df_bultos["Unidad"] = "KG"
-    df_bultos["Altura"] = [h / 100 for h in altos]
-    df_bultos["Unidad_1"] = "M"
-    df_bultos["Longitud"] = [l / 100 for l in largos]
-    df_bultos["Unidad_2"] = "M"
-    df_bultos["Ancho"] = [a / 100 for a in anchos]
-    df_bultos["Unidad_3"] = "M"
+    # Separar datos para pallets y bultos
+    # Crear DataFrames separados para pallets y bultos
+    # Pallets: bultos y posiciones
+    pesos_pallets, altos_pallets, largos_pallets, anchos_pallets, nombre_caja_pallets, lpn_list_pallets = [], [], [], [], [], []
+    posiciones_pallets = []
 
-    # Crear DataFrame posiciones
-    df_posiciones = pd.DataFrame(posiciones_list)
+    # Bultos: bultos y posiciones
+    pesos_bultos, altos_bultos, largos_bultos, anchos_bultos, nombre_caja_bultos, lpn_list_bultos = [], [], [], [], [], []
+    posiciones_bultos = []
 
-    if "Material" not in df_posiciones.columns or df_posiciones.empty:
-        print("❌ No hay datos de posiciones con columna 'Material' para generar la guía.")
-        return  # O manejar según convenga
+    # LPNs de pallets
+    lpns_pallets_set = set()
+    for p in pallets:
+        lpns_pallets_set.update(p["LPNs"])
 
-    # Guardar archivos Excel
-    with pd.ExcelWriter("output/bultos_codelco.xlsx") as writer:
-        df_bultos.to_excel(writer, sheet_name="Bultos", index=False)
-    df_posiciones.to_excel("output/posiciones_codelco.xlsx", index=False)
+    # Distribuir bultos y posiciones según LPN
+    for i, lpn in enumerate(lpn_list):
+        peso = pesos[i]
+        alto = altos[i]
+        largo = largos[i]
+        ancho = anchos[i]
+        nombre = nombre_caja[i]
 
-    print("\n✅ Archivos generados: bultos_codelco.xlsx y posiciones_codelco.xlsx")
+        if lpn in lpns_pallets_set:
+            pesos_pallets.append(peso)
+            altos_pallets.append(alto)
+            largos_pallets.append(largo)
+            anchos_pallets.append(ancho)
+            nombre_caja_pallets.append(nombre)
+            lpn_list_pallets.append(lpn)
+        else:
+            pesos_bultos.append(peso)
+            altos_bultos.append(alto)
+            largos_bultos.append(largo)
+            anchos_bultos.append(ancho)
+            nombre_caja_bultos.append(nombre)
+            lpn_list_bultos.append(lpn)
+
+    # Separar posiciones
+    for pos in posiciones_list:
+        # Para cada posición, verificar si su LPN está en pallets o bultos
+        # Como posiciones_list no tiene LPN, usamos bulto para relacionar con lpn_list
+        bulto_idx = pos["Bulto"] - 1  # índice base 0
+        if 0 <= bulto_idx < len(lpn_list):
+            lpn_pos = lpn_list[bulto_idx]
+            if lpn_pos in lpns_pallets_set:
+                posiciones_pallets.append(pos)
+            else:
+                posiciones_bultos.append(pos)
+        else:
+            # Si no se puede determinar, asignar a bultos por defecto
+            posiciones_bultos.append(pos)
+
+    # Crear DataFrames para pallets
+    df_bultos_pallets = pd.DataFrame()
+    df_bultos_pallets["Bulto"] = range(1, len(pesos_pallets) + 1)
+    df_bultos_pallets["Peso"] = pesos_pallets
+    df_bultos_pallets["Unidad"] = "KG"
+    df_bultos_pallets["Altura"] = [h / 100 for h in altos_pallets]
+    df_bultos_pallets["Unidad_1"] = "M"
+    df_bultos_pallets["Longitud"] = [l / 100 for l in largos_pallets]
+    df_bultos_pallets["Unidad_2"] = "M"
+    df_bultos_pallets["Ancho"] = [a / 100 for a in anchos_pallets]
+    df_bultos_pallets["Unidad_3"] = "M"
+
+    # Agrupar posiciones de cada pallet sumando cantidades y asignando Bulto correcto
+    posiciones_pallets_agrupadas = []
+    for idx, p in enumerate(pallets, start=1):
+        # Agrupar posiciones por Pos, Material y Unidad sumando Cantidad
+        df_pos = pd.DataFrame(p["Posiciones"])
+        if df_pos.empty:
+            continue
+        df_pos_grouped = df_pos.groupby(["Pos", "Material", "Unidad"], as_index=False)["Cantidad"].sum()
+        # Asignar número de bulto según pallet (1, 2, 3, ...)
+        df_pos_grouped["Bulto"] = idx
+        posiciones_pallets_agrupadas.append(df_pos_grouped)
+
+    # Concatenar todas las posiciones agrupadas de pallets
+    if posiciones_pallets_agrupadas:
+        df_posiciones_pallets = pd.concat(posiciones_pallets_agrupadas, ignore_index=True)
+    else:
+        df_posiciones_pallets = pd.DataFrame(columns=["Pos", "Material", "Cantidad", "Unidad", "Bulto"])
+
+    df_posiciones_pallets = pd.DataFrame(posiciones_pallets)
+
+    # Crear DataFrame de bultos de pallets con un bulto por pallet
+    df_bultos_pallets = pd.DataFrame({
+        "Bulto": range(1, len(pallets) + 1),
+        "Peso": [p["Peso (kg)"] for p in pallets],
+        "Unidad": "KG",
+        "Altura": [p["Alto (cm)"] / 100 for p in pallets],
+        "Unidad_1": "M",
+        "Longitud": [p["Largo (cm)"] / 100 for p in pallets],
+        "Unidad_2": "M",
+        "Ancho": [p["Ancho (cm)"] / 100 for p in pallets],
+        "Unidad_3": "M"
+    })
+
+    # Crear DataFrames para bultos
+    df_bultos_bultos = pd.DataFrame()
+    df_bultos_bultos["Bulto"] = range(1, len(pesos_bultos) + 1)
+    df_bultos_bultos["Peso"] = pesos_bultos
+    df_bultos_bultos["Unidad"] = "KG"
+    df_bultos_bultos["Altura"] = [h / 100 for h in altos_bultos]
+    df_bultos_bultos["Unidad_1"] = "M"
+    df_bultos_bultos["Longitud"] = [l / 100 for l in largos_bultos]
+    df_bultos_bultos["Unidad_2"] = "M"
+    df_bultos_bultos["Ancho"] = [a / 100 for a in anchos_bultos]
+    df_bultos_bultos["Unidad_3"] = "M"
+
+    df_posiciones_bultos = pd.DataFrame(posiciones_bultos)
+
+    # Crear carpeta de salida específica
+    output_folder = "output/agunsa"
+    os.makedirs(output_folder, exist_ok=True)
+
+    # Guardar archivos Excel separados para pallets
+    path_bultos_pallets = os.path.join(output_folder, "pallet_bultos.xlsx")
+    path_posiciones_pallets = os.path.join(output_folder, "pallet_posiciones.xlsx")
+
+    df_bultos_pallets.to_excel(path_bultos_pallets, index=False)
+    df_posiciones_pallets.to_excel(path_posiciones_pallets, index=False)
+
+    # Guardar archivos Excel separados para bultos
+    path_bultos_bultos = os.path.join(output_folder, "bultos_bultos.xlsx")
+    path_posiciones_bultos = os.path.join(output_folder, "bultos_posiciones.xlsx")
+
+    df_bultos_bultos.to_excel(path_bultos_bultos, index=False)
+    df_posiciones_bultos.to_excel(path_posiciones_bultos, index=False)
+
+    print("\n✅ Archivos generados en carpeta 'output/agunsa':")
+    print(f" - {path_bultos_pallets}")
+    print(f" - {path_posiciones_pallets}")
+    print(f" - {path_bultos_bultos}")
+    print(f" - {path_posiciones_bultos}")
+
     time.sleep(1)
     os.system('cls')    
 
     # Impresión de guía
     respuesta = input("\n¿Desea imprimir el detalle para la creación de guía? (s/n): ").strip().lower()
     if respuesta == "s":
-        # print(coditem_db)
-        resumen = df_posiciones.groupby("Material").agg({"Cantidad": "sum"}).reset_index()
+        # Obtener LPNs de pallets y bultos
+        lpns_pallets = set()
+        for p in pallets:
+            lpns_pallets.update(p["LPNs"])
+        lpns_bultos = set(lpn_list) - lpns_pallets
 
-        print("\nGuía de Bultos:")
-        print(f"{'CodItem':<12} {'NomItem':<50} {'Cantidad':>8} {'Unidad':>6}")
-        print("-" * 80)
-        for _, r in resumen.iterrows():
-            material = str(r["Material"])
-            cantidad = r["Cantidad"]
-            nomitem = r.get("NomItem", "")
+        # Para pallets, obtener posiciones sumando desde df_wms filtrando por LPNs pallets
+        posiciones_pallets = []
+        for lpn in lpns_pallets:
+            grupo = df_wms[df_wms["LPN"] == lpn]
+            for idx, row in grupo.iterrows():
+                coditem = str(row["CodItem"])
+                pos = pos_material_por_coditem[coditem]["Pos"]
+                material = pos_material_por_coditem[coditem]["Material"]
+                posiciones_pallets.append({
+                    "Pos": pos,
+                    "Material": material,
+                    "Cantidad": row["Unidades"],
+                    "Unidad": "UN"
+                })
 
-            # Obtener nombre desde coditem_db usando material como clave
-            if material in coditem_db:
-                nomitem = coditem_db[material].get("NomItem", "")
+        # Para bultos, obtener posiciones filtrando df_wms por LPNs bultos
+        posiciones_bultos = []
+        for lpn in lpns_bultos:
+            grupo = df_wms[df_wms["LPN"] == lpn]
+            for idx, row in grupo.iterrows():
+                coditem = str(row["CodItem"])
+                pos = pos_material_por_coditem[coditem]["Pos"]
+                material = pos_material_por_coditem[coditem]["Material"]
+                posiciones_bultos.append({
+                    "Pos": pos,
+                    "Material": material,
+                    "Cantidad": row["Unidades"],
+                    "Unidad": "UN"
+                })
+
+        def imprimir_guia(tipo_envio, posiciones):
+            resumen = {}
+            for pos in posiciones:
+                mat = pos["Material"]
+                cant = pos["Cantidad"]
+                resumen[mat] = resumen.get(mat, 0) + cant
+
+            print(f"\nGuía de {tipo_envio}:")
+            print(f"{'CodItem':<12} {'NomItem':<50} {'Cantidad':>8} {'Unidad':>6}")
+            print("-" * 80)
+            for material, cantidad in resumen.items():
+                nomitem = ""
+                # Buscar NomItem en coditem_db usando material
+                if material in coditem_db:
+                    nomitem = coditem_db[material].get("NomItem", "")
+                else:
+                    for v in coditem_db.values():
+                        if str(v.get("Material", "")) == material:
+                            nomitem = v.get("NomItem", "")
+                            break
+                print(f"{material:<12} {nomitem:<50} {cantidad:>8} UN")
+
+            # Mostrar LPNs únicos en la guía, limpiando prefijo SAL0000...
+            def limpiar_lpn(lpn):
+                if lpn.upper().startswith("SAL"):
+                    m = re.match(r"(SAL)0*(\d+)", lpn.upper())
+                    if m:
+                        return f"{m.group(1)}{m.group(2)}"
+                return lpn
+
+            # LPNs para este tipo de envío
+            if tipo_envio == "Pallets":
+                lpns = lpns_pallets
             else:
-                # Buscar en valores si no está como clave
-                for v in coditem_db.values():
-                    if str(v.get("Material", "")) == material:
-                        nomitem = v.get("NomItem", "")
-                        break
+                lpns = lpns_bultos
 
-            print(f"{coditem:<12} {nomitem:<50} {cantidad:>8} UN")
+            lpns_limpios = [limpiar_lpn(lpn) for lpn in sorted(lpns)]
+            print("\nLPNs en la guía:")
+            print(" ".join(lpns_limpios))
 
-        # Mostrar LPNs únicos en la guía, limpiando prefijo SAL0000...
-        def limpiar_lpn(lpn):
-            if lpn.upper().startswith("SAL"):
-                m = re.match(r"(SAL)0*(\d+)", lpn.upper())
-                if m:
-                    return f"{m.group(1)}{m.group(2)}"
-            return lpn
-
-        lpns_usados = list(set(lpn_list))  # Unicos
-        lpns_limpios = [limpiar_lpn(lpn) for lpn in lpns_usados]
-        print("\nLPNs en la guía:")
-        print(" ".join(lpns_limpios))
-
+        # Imprimir guía para pallets y bultos
+        if posiciones_pallets:
+            imprimir_guia("Pallets", posiciones_pallets)
+        if posiciones_bultos:
+            imprimir_guia("Bultos", posiciones_bultos)
 def pedir_pos_y_material(coditems_unicos, coditem_db):
     pos_material_por_coditem = {}
     for coditem in coditems_unicos:
