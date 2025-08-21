@@ -165,7 +165,7 @@ def run(df_wms, df_cajas):
         if caja_sel is None:
             print("Proceso cancelado por usuario.")
             return
-        if caja_sel == "Volver":
+        if isinstance(caja_sel, str) and caja_sel == "Volver":
             # Volver a inicio de registro cajas
             return run(df_wms, df_cajas)
 
@@ -186,7 +186,7 @@ def run(df_wms, df_cajas):
         if caja_sel is None:
             print("Proceso cancelado por usuario.")
             return
-        if caja_sel == "Volver":
+        if isinstance(caja_sel, str) and caja_sel == "Volver":
             return run(df_wms, df_cajas)
 
         pesos.append(peso)
