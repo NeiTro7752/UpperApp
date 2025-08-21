@@ -1,0 +1,6 @@
+{
+  "Owners": {
+    "Owner1": ["ClientA", "ClientB"],
+    "Owner2": ["ClientC"]
+  }
+}
