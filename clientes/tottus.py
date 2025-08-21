@@ -52,6 +52,11 @@ def limpiar_consola():
 def run(df_wms, df_cajas):
     limpiar_consola()
     orden_salida = input("Ingrese orden_salida: ").strip()
+    try:
+        orden_salida = orden_salida
+    except ValueError:
+        print("❌ Orden salida debe ser un número entero.")
+        return
 
     with open(resource_path(os.path.join("data", "client_db.json")), "r", encoding="utf-8") as f:   
 
