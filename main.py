@@ -2,10 +2,11 @@
 import os
 import json
 import pandas as pd
+import importlib.util
+import sys
 
 from utils.seleccion_archivo import seleccionar_archivo
 from utils.cajas import cargar_cajas, agregar_caja, editar_caja, eliminar_caja
-import sys
 
 def resource_path(relative_path):
     """Obtiene la ruta absoluta, compatible con PyInstaller"""
@@ -203,6 +204,42 @@ def eliminar_caja_interactivo(cajas):
     else:
         print("❌ Caja no encontrada.")
 
+def menu_sodimac():
+    import os
+    import importlib.util
+    from utils.seleccion_archivo import seleccionar_archivo
+
+    while True:
+        print("\n--- Menú Sodimac ---")
+        print("1. Procesar ASN")
+        print("2. Volver al menú principal")
+        opcion = input("Seleccione opción: ").strip()
+        if opcion == "1":
+            archivo = seleccionar_archivo("excel")
+            if not archivo:
+                print("❌ No se seleccionó archivo.")
+                input("Presione Enter para continuar...")
+                continue
+            path = os.path.join("utils", "procesar_asn.py")
+            if not os.path.exists(path):
+                print(f"❌ No se encontró el módulo sodimac en {path}")
+                input("Presione Enter para continuar...")
+                continue
+            spec = importlib.util.spec_from_file_location("sodimac", path)
+            sodimac_mod = importlib.util.module_from_spec(spec)
+            spec.loader.exec_module(sodimac_mod)
+            if hasattr(sodimac_mod, "procesar_asn"):
+                sodimac_mod.procesar_asn(archivo)
+            else:
+                print("❌ La función procesar_asn no está definida en sodimac.py")
+            input("Presione Enter para continuar...")
+        elif opcion == "2":
+            break
+        else:
+            print("❌ Opción inválida.")
+            input("Presione Enter para continuar...")
+
+# Modificar función ejecutar_proceso_cliente para detectar sodimac y abrir submenú
 def ejecutar_proceso_cliente():
     database = cargar_database()
     if not database:
@@ -228,6 +265,10 @@ def ejecutar_proceso_cliente():
                 idx = int(seleccion) - 1
                 if 0 <= idx < len(clientes):
                     cliente = clientes[idx]
+                    if cliente.lower() == "sodimac":
+                        menu_sodimac()
+                        limpiar_consola()
+                        continue
                     cliente_mod = cargar_cliente_module(cliente)
                     if cliente_mod is None or not hasattr(cliente_mod, "run"):
                         print(f"❌ El cliente '{cliente}' no tiene función run(df_wms, df_cajas).")
