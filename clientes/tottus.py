@@ -49,9 +49,9 @@ def limpiar_consola():
     os.system('cls' if os.name == 'nt' else 'clear')
 
 
-def run(df_wms, df_cajas):
-    limpiar_consola()
-    orden_salida = input("Ingrese orden_salida: ").strip()
+def run(df_wms, df_cajas, orden_salida=None):
+    if not orden_salida:
+        raise ValueError("Se requiere número de orden de salida para ejecutar el proceso.")
 
     with open(resource_path(os.path.join("data", "client_db.json")), "r", encoding="utf-8") as f:   
 
@@ -141,17 +141,17 @@ def run(df_wms, df_cajas):
     # # Calcular cantidad de bultos (cajas) y total unidades
     # # Se asume que "Unidades dimension logística" está en df_wms y se llama exactamente así
     if 'Unidades dimensión logística' in df.columns:
-        df_final.loc[:, 'Unidades dimensión logística'] = df['Unidades dimensión logística'].astype(float)
-        df_final.loc[:, 'CantidadSolicitada'] = df_final['CantidadSolicitada'].astype(float)
-        df_final.loc[:, 'Bultos'] = df_final['CantidadSolicitada'] / df_final['Unidades dimensión logística']
-        cantidad_bultos = df_final['Bultos'].sum()
-        cantidad_unidades = df_final['CantidadSolicitada'].sum()
-        print(f"Cantidad Bultos: {cantidad_bultos:.0f} - Cantidad Unidades: {cantidad_unidades:.0f}")
+        # Solo calcula las variables pero no las agregues a df_final
+        unidades_logistica = df['Unidades dimensión logística'].astype(float)
+        cantidad_solicitada = df_final['CantidadSolicitada'].astype(float)
+        bultos = cantidad_solicitada / unidades_logistica
+        # Si quieres mostrar o usar estos valores, hazlo aquí, pero no agregues a df_final
+        print(f"Cantidad Bultos: {bultos.sum():.0f} - Cantidad Unidades: {cantidad_solicitada.sum():.0f}")
     else:
         print("❌ No se encontró la columna 'Unidades dimensión logística' para calcular bultos.")
 
-    output_dir = os.path.join("output", "JAL")
-    os.makedirs(output_dir, exist_ok=True)
+    output_path = "output/tottus_resultado.xlsx"
+    os.makedirs(os.path.dirname(output_path), exist_ok=True)
     type_path = os.path.join("output","JAL", "importar tottus.xlsx")
 
     if os.path.exists(type_path):
@@ -204,3 +204,8 @@ def run(df_wms, df_cajas):
         print(f"❌ No se encontró el archivo de formato {type_path}. Se genera sin formato especial.")
         df_final.to_excel(type_path, index=False, sheet_name='Sheet1')
         print(f"✅ Archivo generado en: {type_path}")
+    
+    output_path = "output/tottus_resultado.xlsx"
+    df_final.to_excel(output_path, index=False, sheet_name='Sheet1')
+    print(f"✅ Archivo final generado en: {output_path}")
+    return output_path
