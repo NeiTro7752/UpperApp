@@ -25,8 +25,8 @@
     "NomItem": "STEITZ SECURA SMC 640 GORE BOA S3 NB - MP 270 - 42"
   },
   "2140033": {
-    "NItem": "s",
-    "NroParte": "",
+    "NItem": 4,
+    "NroParte": "KSTSTAVAF_41",
     "NomItem": "STEITZ SECURA KST STAVANGER GTX AF NB 41"
   },
   "2140034": {
@@ -62,7 +62,7 @@
     "NomItem": "STEITZ SECURA SMC 640 GORE BOA S3 NB - MP 277 - 43"
   },
   "2140035": {
-    "NItem": "00010",
+    "NItem": 3,
     "NroParte": "KSTSTAVAF_43",
     "NomItem": "STEITZ SECURA KST STAVANGER GTX AF NB 43"
   },
